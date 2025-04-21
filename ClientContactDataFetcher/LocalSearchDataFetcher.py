@@ -135,7 +135,7 @@ def get_soup_page_with_numbers(page, url, attempt=1, max_attempts=2):
     return BeautifulSoup(page.content(), 'html.parser')
 
 # Helper function to classify a business via DeepSeek
-DEEPSEEK_API_KEY = 'sk-5ba606216734443b94c28e690b4e3d2c'
+DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
 def classify_business(business_info):
     headers = {
         'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
