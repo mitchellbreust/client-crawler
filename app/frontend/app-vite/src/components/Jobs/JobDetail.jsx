@@ -13,6 +13,7 @@ const JobDetail = () => {
   const [applyMessage, setApplyMessage] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [hasConversation, setHasConversation] = useState(false);
   
   useEffect(() => {
     const fetchJob = async () => {
@@ -20,6 +21,16 @@ const JobDetail = () => {
         setLoading(true);
         const response = await axios.get(`/api/jobs/${jobId}`);
         setJob(response.data.job);
+        
+        // Check if job has an existing conversation
+        try {
+          const convResponse = await axios.get(`/api/jobs/${jobId}/conversation`);
+          setHasConversation(!!convResponse.data.conversation);
+        } catch (convErr) {
+          // No conversation exists yet
+          setHasConversation(false);
+        }
+        
         setLoading(false);
       } catch (err) {
         setError('Failed to load job details. Please try again.');
@@ -68,7 +79,7 @@ const JobDetail = () => {
       });
       
       // Navigate to conversation view
-      navigate(`/conversations/${jobId}`);
+      navigate(`/messages/${jobId}`);
     } catch (err) {
       setError('Failed to send message. Please try again.');
       setIsSending(false);
@@ -94,9 +105,16 @@ const JobDetail = () => {
       
       <JobHeader>
         <h1>{job.business_name}</h1>
-        <StatusBadge status={job.status}>
-          {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-        </StatusBadge>
+        <HeaderButtons>
+          {hasConversation && (
+            <ViewMessagesButton onClick={() => navigate(`/messages/${jobId}`)}>
+              View Messages
+            </ViewMessagesButton>
+          )}
+          <StatusBadge status={job.status}>
+            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+          </StatusBadge>
+        </HeaderButtons>
       </JobHeader>
       
       <JobDetailsCard>
@@ -214,6 +232,27 @@ const JobHeader = styled.div`
   h1 {
     margin: 0;
     color: #333;
+  }
+`;
+
+const HeaderButtons = styled.div`
+  display: flex;
+  gap: 10px;
+  align-items: center;
+`;
+
+const ViewMessagesButton = styled.button`
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border: none;
+  border-radius: 16px;
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: #bbdefb;
   }
 `;
 

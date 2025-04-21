@@ -292,8 +292,9 @@ def search_jobs():
                     # Add a count of results for the frontend
                     job_entry['results_count'] = len(businesses)
             
-            # Use the new main function from LocalSearchDataFetcher
-            businesses, csv_path = main(what, where, state, True, update_progress)
+            # Use the new main function from LocalSearchDataFetcher (returns list only)
+            businesses = main(what, where, state, True, update_progress)
+            csv_path = None
             
             # Import businesses to database - Create an application context for database operations
             # Use the actual Flask app instance with a proper app context
@@ -469,31 +470,45 @@ def create_message(conversation_id):
     db.session.add(new_message)
     db.session.commit()
     
-    # Send SMS via Twilio if send_sms is true
-    twilio_sid = None
-    if data.get('send_sms', False):
-        job = conversation.job
-        user = User.query.get(current_user_id)
-        
+    # Send SMS via Twilio or HTTPS SMS depending on user setting
+    job = conversation.job
+    user = User.query.get(current_user_id)
+    if user.messaging_provider == 'httpssms':
+        try:
+            url = 'https://api.httpsms.com/v1/messages/send'
+            headers = {
+                'x-api-key': user.httpssms_api_key,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+            payload = {
+                'content': data['text'],
+                'from': user.phone_number,
+                'to': job.business_phone
+            }
+            resp = requests.post(url, headers=headers, json=payload)
+            resp.raise_for_status()
+            # Update job status
+            if job.status == 'pending':
+                job.status = 'contacted'
+                db.session.commit()
+        except Exception as e:
+            return jsonify({'message': f'Error sending SMS: {str(e)}', 'message_id': new_message.id}), 500
+    else:
+        # Default to Twilio
         try:
             message = twilio_client.messages.create(
                 body=data['text'],
                 from_=TWILIO_PHONE_NUMBER,
                 to=job.business_phone
             )
-            twilio_sid = message.sid
-            
-            # Update message with Twilio SID
-            new_message.twilio_sid = twilio_sid
+            new_message.twilio_sid = message.sid
             db.session.commit()
-            
-            # Update job status to 'contacted' if it was 'pending'
             if job.status == 'pending':
                 job.status = 'contacted'
                 db.session.commit()
         except Exception as e:
-            return jsonify({'message': f'Error sending SMS: {str(e)}', 
-                           'message_id': new_message.id}), 500
+            return jsonify({'message': f'Error sending SMS: {str(e)}', 'message_id': new_message.id}), 500
     
     return jsonify({
         'message': 'Message sent successfully',
@@ -502,7 +517,7 @@ def create_message(conversation_id):
             'text': new_message.text,
             'is_from_user': new_message.is_from_user,
             'timestamp': new_message.timestamp.isoformat(),
-            'twilio_sid': twilio_sid
+            'twilio_sid': new_message.twilio_sid
         }
     }), 201
 
@@ -515,6 +530,9 @@ def generate_message():
     if not data or not data.get('business_name') or not data.get('job_type'):
         return jsonify({'message': 'Business name and job type are required'}), 400
     
+    # Optional extra context for AI prompt
+    extra_context = data.get('extra_context', '').strip()
+    
     business_name = data['business_name']
     job_type = data['job_type']
     
@@ -524,21 +542,31 @@ def generate_message():
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
         }
-
+    
+        example_message_2 = '''Hey, How's it going? I run a local flyer business and saw your in the area. Do you need a flyer drop? I'm in the area and can drop them off tomorrow if you need. My rates are $100 for 1000 flyers.'''
         example_message = '''Hey, How's it going? I was just wondering if you may be in need of a labourer for your plumbing business? I've recently 
                         relocated to cairns and am eager to get going! PLease let me know if you might be willing to give 
                         me a shot. Young, fit and reliable.'''
         
-        data = {
+        # Compose AI messages array
+        system_prompt = (
+            f'Please generate a promotional SMS for the business naturally. Only generate one message and format it as if you where sending the actual text. In other words, only generate one message. Make it sound some what casual and friendly like a real person. Example message that are good that you can use as a template: \n\n Example 1: '
+            + example_message + "\n\n Example 2: " + example_message_2
+        )
+        # Build user prompt with optional extra context
+        user_prompt = f'Generate a message for {business_name} for a {job_type} job.'
+        if extra_context:
+            user_prompt += f' Extra context that the user might give you to help you generate a better message and make it more relevant to the business: {extra_context}'
+        payload = {
             'model': 'deepseek-chat',
             'messages': [
-                {'role': 'system', 'content': f'Please generate a message for the business. For response, create a polite and professional text message applying for a labour job. Example message: {example_message}'},
-                {'role': 'user', 'content': f'Generate a message for {business_name} for a {job_type} job.'}
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt}
             ],
             'temperature': 0.7
         }
         
-        response = requests.post('https://api.deepseek.com/v1/chat/completions', headers=headers, json=data)
+        response = requests.post('https://api.deepseek.com/v1/chat/completions', headers=headers, json=payload)
         response_data = response.json()
         
         generated_message = response_data['choices'][0]['message']['content']
@@ -579,4 +607,41 @@ def twilio_webhook():
     db.session.commit()
     
     # Return empty TwiML response to acknowledge receipt
-    return str(MessagingResponse()), 200 
+    return str(MessagingResponse()), 200
+
+@api_bp.route('/conversations', methods=['GET'])
+@jwt_required()
+def get_conversations():
+    current_user_id = get_jwt_identity()
+    
+    # Get all conversations for the current user
+    conversations = Conversation.query.filter_by(user_id=current_user_id).order_by(Conversation.last_message_time.desc()).all()
+    
+    if not conversations:
+        return jsonify({
+            'conversations': []
+        }), 200
+    
+    conversations_data = []
+    for conversation in conversations:
+        # Get associated job
+        job = Job.query.get(conversation.job_id)
+        
+        # Get last message
+        last_message = Message.query.filter_by(conversation_id=conversation.id).order_by(Message.timestamp.desc()).first()
+        last_message_text = last_message.text if last_message else None
+        
+        conversations_data.append({
+            'id': conversation.id,
+            'job_id': job.id,
+            'business_name': job.business_name,
+            'job_title': job.job_type,
+            'business_phone': job.business_phone,
+            'last_message': last_message_text,
+            'updated_at': conversation.last_message_time.isoformat(),
+            'created_at': conversation.created_at.isoformat()
+        })
+    
+    return jsonify({
+        'conversations': conversations_data
+    }), 200 

@@ -7,6 +7,10 @@ class User(db.Model):
     password = db.Column(db.String(200), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     phone_number = db.Column(db.String(20))  # User's phone number for Twilio
+    twilio_account_sid = db.Column(db.String(100))  # User's Twilio Account SID
+    twilio_auth_token = db.Column(db.String(100))  # User's Twilio Auth Token
+    messaging_provider = db.Column(db.String(20), default='twilio')  # 'twilio' or 'httpssms'
+    httpssms_api_key = db.Column(db.String(200))  # API key if using HTTPS SMS
     
     # Relationships
     jobs = db.relationship('Job', backref='user', lazy=True)

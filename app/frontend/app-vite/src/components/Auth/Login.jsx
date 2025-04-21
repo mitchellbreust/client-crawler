@@ -40,7 +40,7 @@ const Login = () => {
         console.log('Login successful, token saved:', localStorage.getItem('token'));
         
         // Short delay to ensure token is properly saved and processed
-        setTimeout(() => {
+        setTimeout(async () => {
           navigate('/dashboard');
         }, 100);
       } else {

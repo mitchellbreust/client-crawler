@@ -92,6 +92,47 @@ def get_user():
         'user': {
             'id': user.id,
             'email': user.email,
-            'phone_number': user.phone_number
+            'phone_number': user.phone_number,
+            'twilio_account_sid': user.twilio_account_sid,
+            'twilio_auth_token': user.twilio_auth_token,
+            'messaging_provider': user.messaging_provider,
+            'httpssms_api_key': user.httpssms_api_key
+        }
+    }), 200
+
+@auth_bp.route('/user', methods=['PUT'])
+@jwt_required()
+def update_user():
+    # Update user settings (phone and Twilio credentials)
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+    
+    # Update fields if provided
+    if 'phone_number' in data:
+        user.phone_number = data['phone_number']
+    if 'twilio_account_sid' in data:
+        user.twilio_account_sid = data['twilio_account_sid']
+    if 'twilio_auth_token' in data:
+        user.twilio_auth_token = data['twilio_auth_token']
+    if 'messaging_provider' in data:
+        user.messaging_provider = data['messaging_provider']
+    if 'httpssms_api_key' in data:
+        user.httpssms_api_key = data['httpssms_api_key']
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Settings updated successfully',
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'phone_number': user.phone_number,
+            'twilio_account_sid': user.twilio_account_sid,
+            'twilio_auth_token': user.twilio_auth_token,
+            'messaging_provider': user.messaging_provider,
+            'httpssms_api_key': user.httpssms_api_key
         }
     }), 200 

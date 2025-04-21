@@ -67,6 +67,7 @@ export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
   getCurrentUser: () => api.get('/auth/user'),
+  updateUser: (settings) => api.put('/auth/user', settings),
 };
 
 // Jobs API calls
@@ -87,6 +88,7 @@ export const jobsAPI = {
 
 // Conversations API calls
 export const conversationsAPI = {
+  getConversations: () => api.get('/api/conversations'),
   getConversation: (jobId) => api.get(`/api/jobs/${jobId}/conversation`),
   createConversation: (jobId) => api.post(`/api/jobs/${jobId}/conversation`),
   createMessage: (conversationId, messageData) => 

@@ -107,6 +107,22 @@ export const AuthProvider = ({ children }) => {
     setError(null);
   };
 
+  // Update user settings (e.g., Twilio credentials)
+  const updateSettings = async (settings) => {
+    try {
+      setError(null);
+      const response = await authAPI.updateUser(settings);
+      console.log('Settings update response:', response.data);
+      setUser(response.data.user);
+      return { success: true };
+    } catch (error) {
+      console.error('Update settings error:', error.response?.data || error.message);
+      const msg = error.response?.data?.message || 'Failed to update settings';
+      setError(msg);
+      return { success: false, error: msg };
+    }
+  };
+
   const contextValue = {
     user, 
     token, 
@@ -115,6 +131,7 @@ export const AuthProvider = ({ children }) => {
     register,
     login,
     logout,
+    updateSettings,
     isAuthenticated: !!token
   };
   

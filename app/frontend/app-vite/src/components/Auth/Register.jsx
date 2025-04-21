@@ -7,8 +7,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: '',
-    phone_number: ''
+    confirmPassword: ''
   });
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,19 +104,6 @@ const Register = () => {
             onChange={handleChange}
             required
           />
-        </FormGroup>
-        
-        <FormGroup>
-          <label htmlFor="phone_number">Phone Number (for Twilio)</label>
-          <input
-            type="tel"
-            id="phone_number"
-            name="phone_number"
-            value={formData.phone_number}
-            onChange={handleChange}
-            placeholder="+1234567890"
-          />
-          <FieldHint>Include country code (e.g., +61 for Australia)</FieldHint>
         </FormGroup>
         
         <Button type="submit" disabled={isSubmitting}>

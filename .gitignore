@@ -1,0 +1,72 @@
+# ========================================
+# 🌐 React Frontend
+# ========================================
+/frontend/node_modules/
+/frontend/build/
+/frontend/.env
+/frontend/.DS_Store
+
+# Log files
+/frontend/npm-debug.log*
+/frontend/yarn-debug.log*
+/frontend/yarn-error.log*
+
+# ========================================
+# 🐍 Flask Backend
+# ========================================
+/backend/venv/
+/backend/__pycache__/
+/backend/*.pyc
+/backend/instance/
+/backend/.env
+/backend/.DS_Store
+venv/
+
+# Flask specific
+/backend/*.log
+
+# ========================================
+# 🧠 General
+# ========================================
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+.env
+.env.*
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# ========================================
+# 📦 Virtual Environments
+# ========================================
+venv/
+.env/
+.Python
+
+# ========================================
+# 🚀 Deployment
+# ========================================
+*.sqlite3
+*.db
+*.bak
+*.log
+*.pid
+
+# ========================================
+# Testing
+# ========================================
+.coverage
+.tox/
+htmlcov/
+pytest_cache/
+
+__init__.py
+
+**/node_modules/

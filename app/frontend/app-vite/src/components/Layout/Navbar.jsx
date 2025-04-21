@@ -16,14 +16,16 @@ const Navbar = () => {
     <NavbarContainer>
       <NavbarContent>
         <Logo to={isAuthenticated ? '/dashboard' : '/'}>
-          Job Search Phone
+          Outreach360
         </Logo>
         
         <NavLinks>
           {isAuthenticated ? (
             <>
               <NavLink to="/dashboard">Dashboard</NavLink>
-              <NavLink to="/jobs">Jobs</NavLink>
+              <NavLink to="/settings">Settings</NavLink>
+              <NavLink to="/jobs">Job listings/Search</NavLink>
+              <NavLink to="/messages">Messages</NavLink>
               <UserInfo>
                 <span>{user?.email}</span>
                 <LogoutButton onClick={handleLogout}>Logout</LogoutButton>

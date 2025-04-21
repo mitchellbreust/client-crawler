@@ -7,7 +7,8 @@ import Register from './components/Auth/Register';
 import Dashboard from './components/Dashboard/Dashboard';
 import JobList from './components/Jobs/JobList';
 import JobDetail from './components/Jobs/JobDetail';
-import ConversationView from './components/Conversations/ConversationView';
+import Messages from './components/Messages/Messages';
+import Settings from './components/Settings/Settings';
 import Navbar from './components/Layout/Navbar';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 
@@ -47,6 +48,12 @@ function App() {
               </ProtectedRoute>
             } />
             
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/jobs" element={
               <ProtectedRoute>
                 <JobList />
@@ -59,9 +66,15 @@ function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="/conversations/:jobId" element={
+            <Route path="/messages" element={
               <ProtectedRoute>
-                <ConversationView />
+                <Messages />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/messages/:jobId" element={
+              <ProtectedRoute>
+                <Messages />
               </ProtectedRoute>
             } />
           </Routes>

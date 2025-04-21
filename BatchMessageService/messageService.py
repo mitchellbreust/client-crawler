@@ -15,11 +15,13 @@ def generate_message(business_info):
     example_message = '''Hey, How's it going? I was just wondering if you may be in need of a labourer for your plumbing business? I've recently 
                     relocated to cairns and am eager to get going! PLease let me know if you might be willing to give 
                     me a shot. Young, fit and reliable. 
+    
                     '''
+    example_message_2 = '''Hey, How's it going? I run a local flyer business and saw your in the area. Do you need a flyer drop? I'm in the area and can drop them off tomorrow if you need. My rates are $100 for 1000 flyers.'''
     data = {
         'model': 'deepseek-chat',
         'messages': [
-            {'role': 'system', 'content': 'Please generate a message for the business given csv data row: name,phone,url,street,suburb,state,postcode. For response, blend in details about the business naturally. Example message: ' + example_message},
+            {'role': 'system', 'content': 'Please generate a message for the business given csv data row: name,phone,url,street,suburb,state,postcode. For response, blend in details about the business naturally. The user might give you extra information to add in message such as a date, ect. Example message: ' + example_message + "\n" + example_message_2},
             {'role': 'user', 'content': 'Business info: ' + business_info}
         ],
         'temperature': 0.7

@@ -92,7 +92,7 @@ const Dashboard = () => {
                         {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                       </StatusBadge>
                       {job.has_conversation ? (
-                        <ActionButton as={Link} to={`/conversations/${job.id}`}>
+                        <ActionButton as={Link} to={`/messages/${job.id}`}>
                           Open Chat
                         </ActionButton>
                       ) : (
