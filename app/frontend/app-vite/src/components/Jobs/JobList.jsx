@@ -415,6 +415,24 @@ const JobList = () => {
     });
   };
 
+  // Handler to batch-delete selected jobs
+  const handleDeleteSelected = async () => {
+    if (selectedJobs.length === 0) return;
+    if (!window.confirm(`Delete ${selectedJobs.length} selected jobs?`)) return;
+    try {
+      for (const id of selectedJobs) {
+        await jobsAPI.deleteJob(id);
+      }
+      // Update local state
+      setJobs(jobs.filter(job => !selectedJobs.includes(job.id)));
+      setFilteredJobs(filteredJobs.filter(job => !selectedJobs.includes(job.id)));
+      setSelectedJobs([]);
+    } catch (err) {
+      setError('Failed to delete selected jobs. Please try again.');
+      console.error('Batch delete failed:', err);
+    }
+  };
+
   return (
     <JobListContainer>
       <ListHeader>
@@ -822,6 +840,13 @@ const JobList = () => {
             <BatchMessageButton onClick={() => setShowBatchMessageForm(true)}>
               Send Messages ({selectedJobs.length})
             </BatchMessageButton>
+          )}
+
+          {/* Fixed batch delete button */}
+          {selectedJobs.length > 0 && (
+            <DeleteAllButton onClick={handleDeleteSelected}>
+              Delete Selected ({selectedJobs.length})
+            </DeleteAllButton>
           )}
         </>
       )}
@@ -1645,6 +1670,28 @@ const Spinner = styled.div`
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+`;
+
+// Floating delete button
+const DeleteAllButton = styled.button`
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: #e53935;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 100;
+  transition: all 0.2s;
+  &:hover {
+    background-color: #c62828;
+    transform: translateY(-2px);
   }
 `;
 

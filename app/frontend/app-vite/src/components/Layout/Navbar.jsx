@@ -16,28 +16,30 @@ const Navbar = () => {
     <NavbarContainer>
       <NavbarContent>
         <Logo to={isAuthenticated ? '/dashboard' : '/'}>
-          Outreach360
+          ClientCrawler
         </Logo>
-        
-        <NavLinks>
-          {isAuthenticated ? (
-            <>
+
+        {isAuthenticated ? (
+          <>
+            <NavLinks>
               <NavLink to="/dashboard">Dashboard</NavLink>
-              <NavLink to="/settings">Settings</NavLink>
-              <NavLink to="/jobs">Job listings/Search</NavLink>
+              <NavLink to="/jobs">Client list/Search</NavLink>
               <NavLink to="/messages">Messages</NavLink>
-              <UserInfo>
-                <span>{user?.email}</span>
-                <LogoutButton onClick={handleLogout}>Logout</LogoutButton>
-              </UserInfo>
-            </>
-          ) : (
-            <>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Register</NavLink>
-            </>
-          )}
-        </NavLinks>
+              <NavLink to="/settings">Setup SMS</NavLink>
+            </NavLinks>
+            <UserInfo>
+              <span>{user?.email}</span>
+              <LogoutButton type="button" onClick={handleLogout}>
+                Logout
+              </LogoutButton>
+            </UserInfo>
+          </>
+        ) : (
+          <NavLinks>
+            <NavLink to="/login">Login</NavLink>
+            <NavLink to="/register">Register</NavLink>
+          </NavLinks>
+        )}
       </NavbarContent>
     </NavbarContainer>
   );

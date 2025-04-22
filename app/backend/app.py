@@ -3,12 +3,18 @@ import sys
 import logging
 from flask import Flask
 from dotenv import load_dotenv
+import logging as _logging
 
 # Add current directory to Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Silence noisy HTTP debug logs from urllib3
+_logging.getLogger('urllib3').setLevel(_logging.WARNING)
+_logging.getLogger('requests.packages.urllib3').setLevel(_logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -26,7 +32,7 @@ def create_app():
     # Database configuration with absolute path
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ECHO'] = True  # Log SQL operations
+    app.config['SQLALCHEMY_ECHO'] = False  # Disable SQL logging
     
     # JWT configuration
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-secret-key')
@@ -34,6 +40,9 @@ def create_app():
     app.config['JWT_TOKEN_LOCATION'] = ['headers']
     app.config['JWT_HEADER_NAME'] = 'Authorization'
     app.config['JWT_HEADER_TYPE'] = 'Bearer'
+    
+    # Silence verbose SQLAlchemy engine logs
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
     
     # Initialize extensions
     from extensions import db, jwt, cors

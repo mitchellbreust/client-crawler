@@ -8,6 +8,8 @@ import json
 import os
 import requests
 import time
+from dotenv import load_dotenv
+from openai import OpenAI
 
 def extract_page_num(url):
     parsed_url = urlparse(url)
@@ -136,11 +138,12 @@ def get_soup_page_with_numbers(page, url, attempt=1, max_attempts=2):
 
 # Helper function to classify a business via DeepSeek
 DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
+load_dotenv()  # loads the .env file
+OpenAI.api_key = os.getenv("OPENAI_API_KEY")
 def classify_business(business_info):
-    headers = {
-        'Authorization': f'Bearer {DEEPSEEK_API_KEY}',
-        'Content-Type': 'application/json'
-    }
+    client = OpenAI()
+    time.sleep(0.3)
+
     # Prompt user for only category name
     system_msg = (
         "Please output only the category for the business. Only output the category name, nothing else. Nothing else at all. Just the category name. Before you decide on the category, think critically about the name, for example: the business name 'Alphacool Port Douglas' is actually HVAC & Appliance Services not Travel & Tourism. If very unsure, output 'Uncategorized'."
@@ -148,19 +151,51 @@ def classify_business(business_info):
         "HVAC & Appliance Services, Automotive Services, IT & Web Services, Health Wellness & Beauty, Pet Services, Moving & Transport Services, "
         "Professional Services, Legal Services, Retail & E-commerce, Travel & Tourism."
     )
-    payload = {
-        'model': 'deepseek-chat',
-        'messages': [
-            {'role': 'system', 'content': system_msg},
-            {'role': 'user', 'content': f'Business info: {business_info}'}
-        ],
-        'temperature': 0.1
-    }
-    time.sleep(0.2)
-    resp = requests.post('https://api.deepseek.com/v1/chat/completions', headers=headers, json=payload)
-    data = resp.json()
-    print(data)
-    return data['choices'][0]['message']['content'].strip()
+
+    # Send business_info directly
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": business_info}
+        ]
+    )
+    # Extract and return single category string
+    category = response.choices[0].message.content.strip()
+    return category
+
+# Batch classification for many businesses in one API call
+def batch_classify_businesses(businesses):
+    client = OpenAI()
+    # Build list of infos
+    infos = []
+    for biz in businesses:
+        infos.append(
+            ",".join([biz.get(k, '') for k in ['name','phone','url','street','suburb','state','postcode']])
+        )
+
+    system_msg = (
+        "You will be given a JSON array of business info strings. "
+        "Return a JSON array of category names only, in the same order. Strictly give back in json format and in order."
+        "Categories: Real Estate Services, Cleaning Services, Trades & Maintenance, Building & Renovation, Landscaping & Outdoor Services, "
+        "HVAC & Appliance Services, Automotive Services, IT & Web Services, Health Wellness & Beauty, Pet Services, Moving & Transport Services, "
+        "Professional Services, Legal Services, Retail & E-commerce, Travel & Tourism. Only output valid names."
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": json.dumps(infos)}
+        ]
+    )
+    content = response.choices[0].message.content
+    # Parse JSON array of categories
+    try:
+        categories = json.loads(content)
+    except Exception as e:
+        raise RuntimeError(f"Failed to parse categories JSON: {e}\nContent: {content}")
+    return categories
 
 def search_businesses(what, where, state, callback=None):
     """
@@ -214,13 +249,32 @@ def search_businesses(what, where, state, callback=None):
             
         # Sort businesses by phone number for consistency
         all_businesses = sorted(all_businesses, key=lambda x: x["phone"])
-        # Classify each business to enrich with a category
-        for biz in all_businesses:
-            info = ",".join([biz.get(k, '') for k in ['name','phone','url','street','suburb','state','postcode']])
+        # Batch classify when many entries for speed, else fallback to individual
+        if len(all_businesses) > 5:
+            print(f"Attempting batch classification for {len(all_businesses)} businesses...")
             try:
-                biz['category'] = classify_business(info)
-            except Exception:
-                biz['category'] = 'Uncategorized'
+                cats = batch_classify_businesses(all_businesses)
+                print("Batch classification succeeded.")
+                for biz, cat in zip(all_businesses, cats):
+                    biz['category'] = cat
+            except Exception as e:
+                print(f"Batch classification failed ({e}), falling back to individual calls.")
+                for biz in all_businesses:
+                    info = ",".join([biz.get(k, '') for k in ['name','phone','url','street','suburb','state','postcode']])
+                    try:
+                        biz['category'] = classify_business(info)
+                    except Exception as err:
+                        print(f"Individual classify error: {err}")
+                        biz['category'] = 'Uncategorized'
+        else:
+            print(f"Using individual classification for {len(all_businesses)} businesses.")
+            for biz in all_businesses:
+                info = ",".join([biz.get(k, '') for k in ['name','phone','url','street','suburb','state','postcode']])
+                try:
+                    biz['category'] = classify_business(info)
+                except Exception as err:
+                    print(f"Individual classify error: {err}")
+                    biz['category'] = 'Uncategorized'
         
         if callback:
             callback(100, f"Completed search for {what} in {where}, {state}. Found {len(all_businesses)} businesses.", all_businesses)

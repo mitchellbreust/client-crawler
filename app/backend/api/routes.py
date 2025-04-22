@@ -12,6 +12,8 @@ import threading
 import uuid
 import sys
 import logging
+import json
+import re
 
 from extensions import db
 from models.models import User, Job, Conversation, Message
@@ -72,23 +74,26 @@ def import_businesses_to_db(businesses, user_id=None):
             user_id=user_id
         ).first()
         
-        if not existing_job:
-            # Create a new job
-            new_job = Job(
-                business_name=business['name'],
-                business_phone=business['phone'],
-                url=business.get('url', ''),
-                street=business.get('street', ''),
-                suburb=business.get('suburb', ''),
-                state=business.get('state', ''),
-                postcode=business.get('postcode', ''),
-                job_type=business.get('category', 'General'),
-                status='pending',
-                user_id=user_id
-            )
-            
-            db.session.add(new_job)
-            jobs_imported += 1
+        if existing_job:
+            # Update classification if changed
+            existing_job.job_type = business.get('category', existing_job.job_type)
+            continue
+        # Create a new job
+        new_job = Job(
+            business_name=business['name'],
+            business_phone=business['phone'],
+            url=business.get('url', ''),
+            street=business.get('street', ''),
+            suburb=business.get('suburb', ''),
+            state=business.get('state', ''),
+            postcode=business.get('postcode', ''),
+            job_type=business.get('category', 'General'),
+            status='pending',
+            user_id=user_id
+        )
+        
+        db.session.add(new_job)
+        jobs_imported += 1
     
     # Commit all job additions
     db.session.commit()
@@ -453,6 +458,7 @@ def create_message(conversation_id):
         return jsonify({'message': 'Conversation not found'}), 404
     
     data = request.get_json()
+    logging.debug(f"create_message payload: {data}")
     
     if not data or not data.get('text'):
         return jsonify({'message': 'Message text is required'}), 400
@@ -481,19 +487,46 @@ def create_message(conversation_id):
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             }
+            # Sanitize and format phone numbers to E.164
+            raw_to = job.business_phone or ''
+            has_plus_to = raw_to.strip().startswith('+')
+            digits_to = re.sub(r'\D', '', raw_to)
+            if has_plus_to:
+                to_number = '+' + digits_to
+            elif digits_to.startswith('0'):
+                # Australian local numbers: replace leading 0 with country code
+                to_number = '+61' + digits_to[1:]
+            else:
+                to_number = '+' + digits_to
+
+            raw_from = user.phone_number or ''
+            has_plus_from = raw_from.strip().startswith('+')
+            digits_from = re.sub(r'\D', '', raw_from)
+            if has_plus_from:
+                from_number = '+' + digits_from
+            elif digits_from.startswith('0'):
+                from_number = '+61' + digits_from[1:]
+            else:
+                from_number = '+' + digits_from
+
             payload = {
                 'content': data['text'],
-                'from': user.phone_number,
-                'to': job.business_phone
+                'from': from_number,
+                'to': to_number
             }
-            resp = requests.post(url, headers=headers, json=payload)
-            resp.raise_for_status()
+            # Send per docs using raw JSON string in body
+            resp = requests.post(url, headers=headers, data=json.dumps(payload))
+            resp_data = resp.json()
+            if resp.status_code != 200:
+                logging.error(f"HTTPSMS error {resp.status_code}: {resp_data}")
+                return jsonify({'message': 'HTTPSMS send failed', 'details': resp_data}), resp.status_code
             # Update job status
             if job.status == 'pending':
                 job.status = 'contacted'
                 db.session.commit()
         except Exception as e:
-            return jsonify({'message': f'Error sending SMS: {str(e)}', 'message_id': new_message.id}), 500
+            logging.exception("Error sending SMS via HTTPSMS")
+            return jsonify({'message': f'Error sending SMS via HTTPSMS: {str(e)}', 'message_id': new_message.id}), 500
     else:
         # Default to Twilio
         try:
@@ -508,7 +541,8 @@ def create_message(conversation_id):
                 job.status = 'contacted'
                 db.session.commit()
         except Exception as e:
-            return jsonify({'message': f'Error sending SMS: {str(e)}', 'message_id': new_message.id}), 500
+            logging.exception("Error sending SMS via Twilio")
+            return jsonify({'message': f'Error sending SMS via Twilio: {str(e)}', 'message_id': new_message.id}), 500
     
     return jsonify({
         'message': 'Message sent successfully',
